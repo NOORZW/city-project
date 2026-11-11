@@ -17,14 +17,26 @@
             </ul>
         </nav>
     </header>
+
     <main>
-        <section>
-            <h2>Welcome to the City Works Page</h2>
-            <p>Explore the various works and projects happening in our city. From infrastructure development to community initiatives, we are committed to making our city a better place for everyone.</p>
-            <p>Stay updated with the latest news and events, and find out how you can
-    get involved in making a positive impact in our community.</p>
+        <section class="menu-panel">
+            <h2>City Menu</h2>
+            <div class="menu-grid">
+                <button class="menu-item" data-name="Road Expansion" data-points="8" data-community="2" data-eco="1">Road Expansion</button>
+                <button class="menu-item" data-name="Park Renovation" data-points="7" data-community="3" data-eco="2">Park Renovation</button>
+                <button class="menu-item" data-name="Transit Upgrade" data-points="9" data-community="2" data-eco="3">Transit Upgrade</button>
+                <button class="menu-item" data-name="Green Energy" data-points="10" data-community="1" data-eco="4">Green Energy</button>
+            </div>
         </section>
-        <section>
+
+        <section class="game-panel">
+            <h2>City Builder Game</h2>
+            <p>Choose a project to improve your city. Every decision changes the city score.</p>
+            <div id="status">Your city score is 50. Build something great!</div>
+            <button id="reset-game" type="button">Reset City</button>
+        </section>
+
+        <section class="info-panel">
             <h2>Current Projects</h2>
             <ul>
                 <li>Road Expansion Project</li>
@@ -33,21 +45,143 @@
                 <li>Green Energy Initiatives</li>
             </ul>
         </section>
-        <section>
-            <h2>Get Involved</h2>
-            <p>We encourage residents to participate in city projects and initiatives. Here are some ways you can get involved:</p>
-            <ul>
-                <li>Volunteer for community clean-up events</li>
-                <li>Attend city council meetings</li>
-                <li>Join local neighborhood associations</li>
-                <li>Provide feedback on city projects</li>
-                <li> VOTE YES TO ALLOW INLINOIS CITIZENS TO BOYCOT ISREAL!!!</li>>
-            </li>
-        </ul>
-        </section>
     </main>
+
     <footer>
-        <p>&copy; COPY RIGHT NOOR CAUSE HES TUFF.</p>
-        </footer>
+        <p>&copy; City Works | Building a stronger community.</p>
+    </footer>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #f4f7fb;
+            color: #1f2d3d;
+        }
+
+        header {
+            background: #1d3557;
+            color: white;
+            padding: 1rem 2rem;
+        }
+
+        h1 {
+            margin: 0 0 0.5rem;
+        }
+
+        nav ul {
+            display: flex;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            gap: 1rem;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+        }
+
+        main {
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .menu-panel,
+        .game-panel,
+        .info-panel {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .menu-item {
+            background: #e9f3ff;
+            border: 1px solid #bfd9f2;
+            border-radius: 10px;
+            padding: 1rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+
+        .menu-item:hover {
+            background: #d9edff;
+            transform: translateY(-2px);
+        }
+
+        #status {
+            background: #eef6ea;
+            border-left: 5px solid #3a8d3a;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-weight: bold;
+        }
+
+        #reset-game {
+            background: #1d3557;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.8rem 1.2rem;
+            cursor: pointer;
+        }
+
+        footer {
+            background: #1d3557;
+            color: white;
+            text-align: center;
+            padding: 1rem;
+        }
+    </style>
+
+    <script>
+        const menuItems = document.querySelectorAll('.menu-item');
+        const status = document.getElementById('status');
+        const resetButton = document.getElementById('reset-game');
+        let cityScore = 50;
+
+        function updateStatus(message) {
+            status.textContent = message;
+        }
+
+        menuItems.forEach((button) => {
+            button.addEventListener('click', () => {
+                const name = button.dataset.name;
+                const points = Number(button.dataset.points);
+                const community = Number(button.dataset.community);
+                const eco = Number(button.dataset.eco);
+
+                cityScore += points + community + eco;
+
+                let message = `You chose ${name}. City score is now ${cityScore}.`;
+
+                if (cityScore >= 100) {
+                    message += ' Your city is thriving!';
+                } else if (cityScore >= 70) {
+                    message += ' Strong progress on the horizon.';
+                } else if (cityScore <= 30) {
+                    message += ' The city needs another big idea.';
+                }
+
+                updateStatus(message);
+            });
+        });
+
+        resetButton.addEventListener('click', () => {
+            cityScore = 50;
+            updateStatus('Your city score is 50. Build something great!');
+        });
+    </script>
 </body>
 </html>
