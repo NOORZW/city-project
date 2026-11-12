@@ -172,6 +172,8 @@
                     message += ' Strong progress on the horizon.';
                 } else if (cityScore <= 30) {
                     message += ' The city needs another big idea.';
+                } else if (cityScore <= 0) {
+                    message += ' The city is in crisis! Reset to start over.';
                 }
 
                 updateStatus(message);
