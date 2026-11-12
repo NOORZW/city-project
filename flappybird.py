@@ -32,7 +32,7 @@ def game(scr, best):
         key = scr.getch()
         if key in (ord("q"), ord("Q")):
             return score, True
-        if key in (ord(" "), curses.KEY_UP , ord("w"):
+        if key in (ord(" "), curses.KEY_UP , ord("w")):
             started , vy = True, FLAP
         if key in (ord("p"), ord("P")):
             scr.addstr(H // 2, W // 2 - 3, "PAUSED", curses.A_BOLD)
@@ -40,22 +40,23 @@ def game(scr, best):
         key = scr.getch()
     if started:
         vy = min(vy + GRAVITY, 1.0)
-            y += vy
-            if y < 1: y, vy = 1, 0.0              # bump the ceiling
-            for p in pipes: p[0] -= SPEED
-            if not pipes or pipes[-1][0] < W - SPACING:
+        y += vy
+        if y < 1: y, vy = 1, 0.0              # bump the ceiling
+        for p in pipes: p[0] -= SPEED
+        if not pipes or pipes[-1][0] < W - SPACING:
                 pipes.append([W + 1.0, random.randint(2, H - GAP - 1), False])
-            for p in pipes[:]:
-                if p[0] + PIPE_W < 1:
-                    pipes.remove(p)
-                elif not p[2] and p[0] + PIPE_W <= BIRD_X:
-                    p[2] = True                   # flew past this pipe
-                    score += 1
+        for p in pipes[:]:
+            if p[0] + PIPE_W < 1:
+                pipes.remove(p)
+            elif not p[2] and p[0] + PIPE_W <= BIRD_X:
+                p[2] = True                   # flew past this pipe
+                score += 1
             by = round(y)
             hit = y > H or any(int(px) <= BIRD_X < int(px) + PIPE_W and not top <= by < top + GAP
-                               for px, top, _ in pipes)
+                                for px, top, _ in pipes)
             if hit:
-                curses.flash()
-                return score, False
+                    curses.flash()
+                    return score, False
         draw(scr, y, vy, pipes, score, max(best, score), started)
         time.sleep(0.05)
+        
