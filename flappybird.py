@@ -12,14 +12,14 @@ BEST_FILE = Path.home() / ".flappy_best"
 
 def draw(scr, y, vy, pipes, score, best, started):
     scr.erase()
-    scr.addstr(0, 0, f" Score: {score<4} Best: {best} ".ljust(W,+2), curses.A_REVERSE)
+    scr.addstr(0, 0, f" Score: {score:<4} Best: {best} ".ljust(W + 2), curses.A_REVERSE)
     for px, top, _ in pipes:
         for cx in range(int(px), int(px) + PIPE_W):
             if 1 <= cx <= W:
                 for cy in range(1, H + 1):
                     if not top <= cy < top + GAP:
                         scr.addstr(cy, cx, "#", curses.color_pair(1))
-    scr.addstr(H + 1, 0, "-" * (W + 2), curses.color_pair(2))
+    scr.addstr(H + 1, 0, "=" * (W + 2), curses.color_pair(2))
     bird = "^" if vy < 0 else "v"
     scr.addstr(max(1, min(H, round(y))), BIRD_X, bird, curses.color_pair(3) | curses.A_BOLD)
     if not started:
@@ -27,36 +27,73 @@ def draw(scr, y, vy, pipes, score, best, started):
     scr.refresh()
 
 def game(scr, best):
-    y, vy, score, started = H // 2, 0, 0, False
+    y, vy, pipes, score, started = H / 2, 0.0, [], 0, False
     while True:
         key = scr.getch()
-        if key in (ord("q"), ord("Q")):
-            return score, True
-        if key in (ord(" "), curses.KEY_UP , ord("w")):
-            started , vy = True, FLAP
-        if key in (ord("p"), ord("P")):
-            scr.addstr(H // 2, W // 2 - 3, "PAUSED", curses.A_BOLD)
-            scr.nodelay(False); scr.getch(); scr.nodelay(True)
-        key = scr.getch()
-    if started:
-        vy = min(vy + GRAVITY, 1.0)
-        y += vy
-        if y < 1: y, vy = 1, 0.0              # bump the ceiling
-        for p in pipes: p[0] -= SPEED
-        if not pipes or pipes[-1][0] < W - SPACING:
+        while key != -1:                          # handle every key pressed this frame
+            if key in (ord("q"), ord("Q")):
+                return score, True
+            if key in (ord(" "), curses.KEY_UP, ord("w")):
+                started, vy = True, FLAP
+            if key in (ord("p"), ord("P")):
+                scr.addstr(H // 2, W // 2 - 3, "PAUSED", curses.A_BOLD)
+                scr.nodelay(False); scr.getch(); scr.nodelay(True)
+            key = scr.getch()
+        if started:
+            vy = min(vy + GRAVITY, 1.0)
+            y += vy
+            if y < 1: y, vy = 1, 0.0              # bump the ceiling
+            for p in pipes: p[0] -= SPEED
+            if not pipes or pipes[-1][0] < W - SPACING:
                 pipes.append([W + 1.0, random.randint(2, H - GAP - 1), False])
-        for p in pipes[:]:
-            if p[0] + PIPE_W < 1:
-                pipes.remove(p)
-            elif not p[2] and p[0] + PIPE_W <= BIRD_X:
-                p[2] = True                   # flew past this pipe
-                score += 1
+            for p in pipes[:]:
+                if p[0] + PIPE_W < 1:
+                    pipes.remove(p)
+                elif not p[2] and p[0] + PIPE_W <= BIRD_X:
+                    p[2] = True                   # flew past this pipe
+                    score += 1
             by = round(y)
             hit = y > H or any(int(px) <= BIRD_X < int(px) + PIPE_W and not top <= by < top + GAP
-                                for px, top, _ in pipes)
+                               for px, top, _ in pipes)
             if hit:
-                    curses.flash()
-                    return score, False
+                curses.flash()
+                return score, False
         draw(scr, y, vy, pipes, score, max(best, score), started)
         time.sleep(0.05)
-        
+
+def main(scr):
+    curses.curs_set(0); scr.nodelay(True); scr.keypad(True)
+    curses.start_color()
+    curses.use_default_colors()
+    for i, c in enumerate((curses.COLOR_GREEN, curses.COLOR_YELLOW, curses.COLOR_CYAN), 1):
+        curses.init_pair(i, c, -1)
+    rows, cols = scr.getmaxyx()
+    if rows < H + 3 or cols < W + 3:
+        return f"Make your terminal at least {W + 3} wide and {H + 3} tall."
+    try:
+        best = int(BEST_FILE.read_text())
+    except (OSError, ValueError):
+        best = 0
+    while True:
+        score, quit_now = game(scr, best)
+        if score > best:
+            best = score
+            BEST_FILE.write_text(str(best))
+        if quit_now:
+            return None
+        lines = ["GAME OVER", f"Score: {score}   Best: {best}", "R = play again   Q = quit"]
+        for i, line in enumerate(lines):
+            scr.addstr(H // 2 - 1 + i, (W + 2 - len(line)) // 2, line, curses.A_BOLD)
+        scr.nodelay(False)
+        time.sleep(0.5)                           # so a late flap doesn't skip the screen
+        curses.flushinp()
+        while (k := scr.getch()) not in (ord("r"), ord("R"), ord("q"), ord("Q")):
+            pass
+        if k in (ord("q"), ord("Q")):
+            return None
+        scr.nodelay(True)
+
+if __name__ == "__main__":
+    msg = curses.wrapper(main)
+    if msg:
+        print(msg)
