@@ -45,4 +45,135 @@ let s, scroll = 0, paused = false, last = performance.now();
 const clouds = Array.from({ length: 6 }, () => ({ x: Math.random() * W, y: 40 + Math.random() * 260, s: 0.7 + Math.random() * 0.7 }));
 
 function reset() {
-  s = { state: "ready", y: PLAY_H / 2, vy: 0, pipes: [], score: 0, t: 0, flash: 0, shake: 0, parts: [], newBest: false, deadAt: 0 };
+  s = { state: "ready", y: PLAY_H / 2, vy: 0, pipes: [], score: 0, t: 0, flash: 0, shake: 0,
+        parts: [], newBest: false, deadAt: 0 };
+}
+reset();
+
+function flap() {
+  if (paused) return;
+  if (s.state === "ready") s.state = "play";
+  if (s.state === "play") {
+    s.vy = FLAP;
+    beep(520, 0.12, "square", 0.05, 380);
+    for (let i = 0; i < 4; i++)
+      s.parts.push({ x: BIRD_X - 10, y: s.y + 6, vx: -90 + Math.random() * 60, vy: 10 + Math.random() * 70, life: 0.35 });
+  } else if (s.state === "dead") restart();
+}
+function restart() { if (s.state === "dead" && performance.now() - s.deadAt > 400) reset(); }
+function togglePause() { if (s.state === "play") paused = !paused; }
+
+function die() {
+  s.state = "dead"; s.flash = 1; s.shake = 0.4; s.deadAt = performance.now();
+  for (let i = 0; i < 18; i++) {
+    const a = Math.random() * Math.PI * 2, v = 60 + Math.random() * 200;
+    s.parts.push({ x: BIRD_X, y: s.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.7 });
+  }
+  beep(220, 0.35, "sawtooth", 0.08, -160);
+  if (s.score > best) {
+    best = s.score; s.newBest = true;
+    try { localStorage.setItem("flappy_best", best); } catch (e) {}
+  }
+}
+
+function hitsPipe() {
+  const r = BIRD_R - 3;
+  return s.pipes.some(p => BIRD_X + r > p.x && BIRD_X - r < p.x + PIPE_W && (s.y - r < p.top || s.y + r > p.top + GAP));
+}
+
+function step(dt) {
+  s.t += dt;
+  s.flash = Math.max(0, s.flash - dt * 3);
+  s.shake = Math.max(0, s.shake - dt);
+  s.parts = s.parts.filter(p => {
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 400 * dt; p.life -= dt;
+    return p.life > 0;
+  });
+  if (s.state !== "dead") {
+    scroll = (scroll + SPEED * dt) % 24;
+    clouds.forEach(c => { c.x -= 18 * c.s * dt; if (c.x < -100) { c.x = W + 60; c.y = 40 + Math.random() * 260; } });
+  }
+  if (s.state === "ready") { s.y = PLAY_H / 2 + Math.sin(s.t * 5) * 8; return; }
+  s.vy = Math.min(s.vy + GRAVITY * dt, MAX_FALL);
+  s.y += s.vy * dt;
+  if (s.state === "dead") { s.y = Math.min(s.y, PLAY_H - BIRD_R); return; }
+  if (s.y < BIRD_R) { s.y = BIRD_R; s.vy = 0; }
+  for (const p of s.pipes) {
+    p.x -= SPEED * dt;
+    if (!p.passed && p.x + PIPE_W < BIRD_X - BIRD_R) { p.passed = true; s.score++; beep(880, 0.09, "triangle", 0.07, 300); }
+  }
+  s.pipes = s.pipes.filter(p => p.x + PIPE_W + CAP_X > 0);
+  while (!s.pipes.length || s.pipes[s.pipes.length - 1].x < W) {
+    const x = s.pipes.length ? s.pipes[s.pipes.length - 1].x + SPACING : W + 60;
+    s.pipes.push({ x, top: 70 + Math.random() * (PLAY_H - GAP - 140), passed: false });
+  }
+  if (s.y + BIRD_R >= PLAY_H || hitsPipe()) { s.y = Math.min(s.y, PLAY_H - BIRD_R); die(); }
+}
+
+// ---------- drawing ----------
+function ellipse(x, y, rx, ry, fill, stroke, lw = 2) {
+  ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
+}
+function rect(x, y, w, h, fill, stroke, lw = 2) {
+  if (fill) { ctx.fillStyle = fill; ctx.fillRect(x, y, w, h); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.strokeRect(x, y, w, h); }
+}
+function text(str, x, y, size, color, align = "center", shadow = false) {
+  ctx.font = `bold ${size}px Helvetica, Arial, sans-serif`;
+  ctx.textAlign = align; ctx.textBaseline = "middle";
+  if (shadow) { ctx.fillStyle = "#333"; ctx.fillText(str, x + 2, y + 2); }
+  ctx.fillStyle = color; ctx.fillText(str, x, y);
+}
+
+function drawSky() {
+  const g = ctx.createLinearGradient(0, 0, 0, PLAY_H);
+  g.addColorStop(0, "#46beeb"); g.addColorStop(1, "#c8eefa");
+  rect(0, 0, W, PLAY_H, g);
+  for (const c of clouds)
+    for (const [dx, dy, rx, ry] of [[0, 0, 36, 18], [-26, 6, 24, 13], [28, 7, 26, 13]])
+      ellipse(c.x + dx * c.s, c.y + dy * c.s, rx * c.s, ry * c.s, "#fff");
+}
+
+function drawPipe(p) {
+  const piece = (y0, y1, capY) => {
+    rect(p.x, y0, PIPE_W, y1 - y0, GREEN, GREEN_D);
+    rect(p.x + 8, y0, 10, y1 - y0, GREEN_L);
+    rect(p.x + PIPE_W - 14, y0, 8, y1 - y0, GREEN_D);
+    rect(p.x - CAP_X, capY, PIPE_W + CAP_X * 2, CAP_H, GREEN, GREEN_D);
+    rect(p.x - CAP_X + 8, capY + 3, 10, CAP_H - 6, GREEN_L);
+  };
+  piece(-2, p.top, p.top - CAP_H);
+  piece(p.top + GAP, PLAY_H, p.top + GAP);
+}
+
+function drawGround() {
+  rect(0, PLAY_H, W, GROUND, "#ded895");
+  rect(0, PLAY_H, W, 18, "#8ed23b");
+  for (let i = -1; i < W / 24 + 2; i++) {
+    const x = i * 24 - scroll;
+    ctx.fillStyle = "#7cbf2f";
+    ctx.beginPath(); ctx.moveTo(x, PLAY_H); ctx.lineTo(x + 12, PLAY_H);
+    ctx.lineTo(x + 4, PLAY_H + 18); ctx.lineTo(x - 8, PLAY_H + 18); ctx.fill();
+    ctx.strokeStyle = "#c9b96b"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x + 6, PLAY_H + 30); ctx.lineTo(x - 6, PLAY_H + 56); ctx.stroke();
+  }
+  ctx.strokeStyle = "#4a7a1a"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(0, PLAY_H); ctx.lineTo(W, PLAY_H); ctx.stroke();
+}
+
+function drawBird() {
+  const tilt = s.state === "ready" ? 0 : Math.max(-25, Math.min(80, s.vy * 0.12)) * Math.PI / 180;
+  ctx.save(); ctx.translate(BIRD_X, s.y); ctx.rotate(tilt);
+  const flapA = Math.sin(s.t * (s.state === "play" ? 22 : 10));
+  ellipse(-12, 2, 6, 4, "#e0a010");                                   // tail
+  ellipse(0, 0, BIRD_R + 3, BIRD_R, "#fbd53a", "#6b4a0a");            // body
+  ellipse(2, 6, 10, 5, "#fff0a0");                                    // belly
+  ellipse(-6, 3 + flapA * 4, 9, 5 - flapA * 2, "#f0b010", "#6b4a0a"); // wing
+  ellipse(7, -5, 5.5, 5.5, "#fff", "#6b4a0a", 1);                     // eye
+  ellipse(9, -5, 2.4, 2.4, "#000");
+  ctx.fillStyle = "#f26a2e"; ctx.strokeStyle = "#6b4a0a"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(12, 1); ctx.lineTo(24, 3); ctx.lineTo(12, 8); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
